@@ -84,8 +84,7 @@ bash ./scenarios/03-prompt-guard/test.sh
 curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d '{"messages": [{"role": "user", "content": "有給休暇の申請方法を教えてください。"}]}' \
-  | jq '.choices[0].message.content'
+  -d '{"messages": [{"role": "user", "content": "有給休暇の申請方法を教えてください。"}]}'
 ```
 
 system プロンプトで「Acme AI」として振る舞うよう指示されているため、  
@@ -101,8 +100,7 @@ PROMPT="ここに試したいプロンプトを入れる"
 curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d "{\"messages\": [{\"role\": \"user\", \"content\": \"${PROMPT}\"}]}" \
-  | jq '{status: .message} // {answer: .choices[0].message.content}'
+  -d "{\"messages\": [{\"role\": \"user\", \"content\": \"${PROMPT}\"}]}"
 ```
 
 **試してみると面白いプロンプト例:**
@@ -129,8 +127,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
 curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d '{"messages": [{"role": "user", "content": "明日のランチにおすすめのレストランを教えて。"}]}' \
-  | jq '.choices[0].message.content'
+  -d '{"messages": [{"role": "user", "content": "明日のランチにおすすめのレストランを教えて。"}]}'
 ```
 
 「業務と無関係な質問は対応できません」旨の回答が返れば、system プロンプトが機能しています。

@@ -25,9 +25,9 @@ services:
       # ------------------------------------------------------------------
       # ai-proxy-advanced: 2 ターゲット構成でコストを最適化
       #
-      # gpt-4o-mini (weight: 90): 安価・高速。通常リクエストの大半を処理。
-      # gpt-4o      (weight: 10): 高品質。複雑な質問や重要度の高い用途に。
-      # weighted-round-robin でトラフィックを 9:1 で振り分ける。
+      # gpt-4o-mini: 安価・高速。通常リクエストの大半を処理。
+      # gpt-4o     : 高品質。複雑な質問や重要度の高い用途に。
+      # round-robin でトラフィックを均等に振り分ける。
       # ------------------------------------------------------------------
       - name: ai-proxy-advanced
         config:
@@ -41,7 +41,6 @@ services:
                 name: gpt-4o-mini
                 options:
                   max_tokens: 256
-              weight: 90
             - route_type: llm/v1/chat
               auth:
                 header_name: Authorization
@@ -51,25 +50,28 @@ services:
                 name: gpt-4o
                 options:
                   max_tokens: 256
-              weight: 10
           balancer:
-            algorithm: weighted-round-robin
-            tokens_count_strategy: total_tokens
+            algorithm: round-robin
 
       # ------------------------------------------------------------------
       # ai-rate-limiting-advanced: トークンベースのレート制限
       #
-      # 1分間に合計 2,000 トークン (prompt + completion) まで。
+      # Consumer ごとに 1分間 2,000 トークン (prompt + completion) まで。
+      # match[type=consumer, partition_by=true] で Consumer 別にカウント。
       # 制限超過時は 429 Too Many Requests を返す。
       # ------------------------------------------------------------------
       - name: ai-rate-limiting-advanced
         config:
-          limit_by: consumer
-          window_type: sliding
-          limits:
-            token_limit:
-              minute: 2000
-          tokens_count_strategy: total_tokens
+          strategy: local
+          policies:
+            - match:
+                - type: consumer
+                  partition_by: true
+              limits:
+                - limit: 600
+                  window_size: 60
+                  tokens_count_strategy: total_tokens
+              window_type: sliding
           error_code: 429
           error_message: "トークンのレート制限を超えました。しばらくしてから再試行してください。"
 

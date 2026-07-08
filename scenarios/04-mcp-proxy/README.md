@@ -125,7 +125,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/mcp" \
       "capabilities": {},
       "clientInfo": { "name": "workshop-client", "version": "1.0" }
     }
-  }' | jq .
+  }'
 ```
 
 ### 利用可能なツールを確認する
@@ -135,8 +135,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/mcp" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}' \
-  | jq '.result.tools[] | {name, description}'
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}'
 ```
 
 ### ツールを実行する (tools/call)
@@ -157,7 +156,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/mcp" \
       "name": "get_current_time",
       "arguments": { "timezone": "Asia/Tokyo" }
     }
-  }' | jq '.result'
+  }'
 ```
 
 ### 認証なしでアクセスしてみる（Kong がブロックすることを確認）
@@ -165,8 +164,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/mcp" \
 ```bash
 curl -s -X POST "${KONNECT_PROXY_URL}/mcp" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' \
-  | jq .
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}'
 ```
 
 MCP サーバーではなく Kong が `401 Unauthorized` を返します。  

@@ -100,7 +100,7 @@ bash ./scenarios/01-ai-proxy/test.sh
 {"id":"chatcmpl-...","object":"chat.completion","model":"gpt-4o-mini","choices":[{"message":{"role":"assistant","content":"Kongは..."}}],"usage":{...}}
 
 === テスト 2: gemini-user → Gemini (同じ POST /ai/chat) ===
-{"id":"...","object":"chat.completion","model":"gemini-2.0-flash","choices":[{"message":{"role":"assistant","content":"Kongは..."}}],"usage":{...}}
+{"id":"...","object":"chat.completion","model":"gemini-2.5-flash","choices":[{"message":{"role":"assistant","content":"Kongは..."}}],"usage":{...}}
 
 === テスト 3: 認証キーなし → 401 ===
 {"message":"Unauthorized","request_id":"..."}
@@ -111,7 +111,7 @@ bash ./scenarios/01-ai-proxy/test.sh
 
 **確認ポイント:**
 - テスト 1・2 は **同じ URL、同じリクエストボディ**。`apikey` ヘッダーの値だけが異なる
-- テスト 1 のレスポンス内 `"model"` が `"gpt-4o-mini"`、テスト 2 が `"gemini-2.0-flash"` であること
+- テスト 1 のレスポンス内 `"model"` が `"gpt-4o-mini"`、テスト 2 が `"gemini-2.5-flash"` であること
 - テスト 3・4 で `{"message":"Unauthorized"}` が返ること
 
 ---
@@ -124,8 +124,7 @@ bash ./scenarios/01-ai-proxy/test.sh
 curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d '{"messages": [{"role": "user", "content": "Kongとは何か、一文で説明してください。"}]}' \
-  | jq '{model: .model, content: .choices[0].message.content}'
+  -d '{"messages": [{"role": "user", "content": "Kongとは何か、一文で説明してください。"}]}'
 ```
 
 **Gemini (gemini-user)**
@@ -134,8 +133,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
 curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_GEMINI_KEY}" \
-  -d '{"messages": [{"role": "user", "content": "Kongとは何か、一文で説明してください。"}]}' \
-  | jq '{model: .model, content: .choices[0].message.content}'
+  -d '{"messages": [{"role": "user", "content": "Kongとは何か、一文で説明してください。"}]}'
 ```
 
 URL・メソッド・ボディはまったく同じ。`apikey` ヘッダーの値だけが異なります。  

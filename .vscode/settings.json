@@ -1,0 +1,8 @@
+{
+  "yaml.schemas": {
+    "./.vscode/deck-schema.json": [
+      "**/deck.yaml",
+      "**/deck.yml"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/shinichi.hashitanikonghq.com/LOCAL_REPO/ai-gateway-workshop -name \"*.yaml\" -path \"*/.vscode/*\" 2>/dev/null *)",
+      "Read(//Users/shinichi.hashitanikonghq.com/Library/Application Support/Code/User/**)",
+      "Bash(python3 -m json.tool)",
+      "Bash(cat \"$HOME/Library/Application Support/Code/User/settings.json\" 2>/dev/null)",
+      "Bash(mkdir -p /Users/shinichi.hashitanikonghq.com/LOCAL_REPO/ai-gateway-workshop/.vscode)",
+      "Bash(envsubst --version)",
+      "Bash(gh auth *)",
+      "Bash(GITHUB_TOKEN= gh auth status)"
+    ],
+    "additionalDirectories": [
+      "/Users/shinichi.hashitanikonghq.com/LOCAL_REPO/ai-gateway-workshop"
+    ]
+  }
+}

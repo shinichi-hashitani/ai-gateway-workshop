@@ -1,0 +1,84 @@
+_format_version: "3.0"
+
+# ---------------------------------------------------------------------------
+# シナリオ 2: AI Rate Limiting — トークンベースのレート制限
+#
+# ポイント:
+#  - LLM の料金はリクエスト数ではなくトークン消費量で決まる
+#  - ai-rate-limiting-advanced でトークン単位の制限をかける
+#  - ai-proxy-advanced の weighted-round-robin で安価モデルを優先する
+#    (高負荷・コスト超過を防ぐ多層防御の例)
+#  - Consumer ごとに独立してカウント (limit_by: consumer)
+# ---------------------------------------------------------------------------
+
+services:
+  - name: ai-rate-limiting-demo
+    url: https://api.openai.com
+    routes:
+      - name: chat-with-limit
+        paths:
+          - /ai/chat
+        methods:
+          - POST
+        strip_path: false
+    plugins:
+      # ------------------------------------------------------------------
+      # ai-proxy-advanced: 2 ターゲット構成でコストを最適化
+      #
+      # gpt-4o-mini (weight: 90): 安価・高速。通常リクエストの大半を処理。
+      # gpt-4o      (weight: 10): 高品質。複雑な質問や重要度の高い用途に。
+      # weighted-round-robin でトラフィックを 9:1 で振り分ける。
+      # ------------------------------------------------------------------
+      - name: ai-proxy-advanced
+        config:
+          targets:
+            - route_type: llm/v1/chat
+              auth:
+                header_name: Authorization
+                header_value: "Bearer ${OPENAI_API_KEY}"
+              model:
+                provider: openai
+                name: gpt-4o-mini
+                options:
+                  max_tokens: 256
+              weight: 90
+            - route_type: llm/v1/chat
+              auth:
+                header_name: Authorization
+                header_value: "Bearer ${OPENAI_API_KEY}"
+              model:
+                provider: openai
+                name: gpt-4o
+                options:
+                  max_tokens: 256
+              weight: 10
+          balancer:
+            algorithm: weighted-round-robin
+            tokens_count_strategy: total_tokens
+
+      # ------------------------------------------------------------------
+      # ai-rate-limiting-advanced: トークンベースのレート制限
+      #
+      # 1分間に合計 2,000 トークン (prompt + completion) まで。
+      # 制限超過時は 429 Too Many Requests を返す。
+      # ------------------------------------------------------------------
+      - name: ai-rate-limiting-advanced
+        config:
+          limit_by: consumer
+          window_type: sliding
+          limits:
+            token_limit:
+              minute: 2000
+          tokens_count_strategy: total_tokens
+          error_code: 429
+          error_message: "トークンのレート制限を超えました。しばらくしてから再試行してください。"
+
+      - name: key-auth
+        config:
+          key_names:
+            - apikey
+
+consumers:
+  - username: demo-user
+    keyauth_credentials:
+      - key: "${KONG_API_KEY}"

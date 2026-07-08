@@ -1,0 +1,56 @@
+_format_version: "3.0"
+
+# ---------------------------------------------------------------------------
+# シナリオ 4: MCP Proxy — MCP サーバーへのゲートウェイ
+#
+# ポイント:
+#  - Model Context Protocol (MCP) サーバーを Kong 経由で公開する
+#  - AI エージェント/クライアントは Kong の MCP エンドポイントに接続する
+#  - Kong が認証・認可・レート制限などの横断的関心事を担う
+#
+# 構成:
+#   AIクライアント  →  Kong (key-auth + mcp-proxy)  →  MCPサーバー
+#
+# このデモでは mcp.run が提供するパブリック MCP サーバーを使用します:
+#   https://mcp.run  (無料で試せるサンプル MCP サーバー群)
+#
+# MCP_SERVER_URL: 接続する MCP サーバーの Streamable HTTP エンドポイント
+# ---------------------------------------------------------------------------
+
+services:
+  # ------------------------------------------------------------------
+  # MCP Proxy サービス
+  # Kong が MCP プロトコル (JSON-RPC over HTTP/SSE) を透過的にプロキシする
+  # ------------------------------------------------------------------
+  - name: mcp-proxy-demo
+    url: "${MCP_SERVER_URL}"
+    routes:
+      - name: mcp-route
+        paths:
+          - /mcp
+        # MCP Streamable HTTP では GET/POST/DELETE を使用する
+        methods:
+          - GET
+          - POST
+          - DELETE
+        strip_path: true
+    plugins:
+      # ------------------------------------------------------------------
+      # mcp-proxy: MCP プロトコルのプロキシ処理
+      # Streamable HTTP (HTTP + SSE) と旧 SSE-only の両方をサポート
+      # ------------------------------------------------------------------
+      - name: mcp-proxy
+        config:
+          # タイムアウト設定 (LLM の応答待ちを考慮して長めに設定)
+          upstream_read_timeout: 120000  # 120秒
+
+      # クライアント認証 (MCP サーバーへの不正アクセスを防ぐ)
+      - name: key-auth
+        config:
+          key_names:
+            - apikey
+
+consumers:
+  - username: mcp-demo-user
+    keyauth_credentials:
+      - key: "${KONG_API_KEY}"

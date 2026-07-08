@@ -1,0 +1,97 @@
+_format_version: "3.0"
+
+# ---------------------------------------------------------------------------
+# シナリオ 1: AI Proxy Advanced — Consumer キーによる LLM ルーティング
+#
+# 設計:
+#  - LLM の API キー (OPENAI_API_KEY / GEMINI_API_KEY) はサービスレベルの
+#    ai-proxy-advanced プラグイン設定で管理する。Consumer 側には持たせない。
+#  - Consumer は keyauth_credentials (自分の Consumer キー) だけを持つ。
+#  - Kong のプラグインスコープ機能を使い、Consumer ごとに異なる LLM へ転送する。
+#
+# プラグインスコープの優先度 (上位が優先):
+#   Consumer + Route/Service スコープ > Service スコープ > (グローバル)
+#
+#  demo-user   → Consumer スコープなし → デフォルト (OpenAI GPT-4o-mini)
+#  gemini-user → Consumer スコープあり → Gemini 2.0 Flash に上書き
+#
+# エンドポイントは両 Consumer とも同じ: POST /ai/chat
+# ---------------------------------------------------------------------------
+
+services:
+  - name: ai-proxy-demo
+    # ai-proxy-advanced が上流 URL を上書きするため、ダミーホストで問題ない
+    url: https://api.openai.com
+    routes:
+      - name: chat
+        paths:
+          - /ai/chat
+        methods:
+          - POST
+        strip_path: false
+    plugins:
+      # ------------------------------------------------------------------
+      # [デフォルト] ai-proxy-advanced — Consumer スコープなし → OpenAI
+      #
+      # Consumer スコープを持たないため、すべての認証済みリクエストに適用される。
+      # gemini-user には後述のスコープ付き設定が優先されるため実質 demo-user 用。
+      # ------------------------------------------------------------------
+      - name: ai-proxy-advanced
+        config:
+          targets:
+            - route_type: llm/v1/chat
+              auth:
+                header_name: Authorization
+                header_value: "Bearer ${OPENAI_API_KEY}"
+              model:
+                provider: openai
+                name: gpt-4o-mini
+                options:
+                  max_tokens: 512
+                  temperature: 0.7
+          balancer:
+            algorithm: round-robin
+
+      # ------------------------------------------------------------------
+      # [gemini-user 専用] ai-proxy-advanced — Consumer スコープあり → Gemini
+      #
+      # consumer: gemini-user を指定することで、このプラグイン設定は
+      # gemini-user のリクエストにのみ適用され、デフォルト設定を上書きする。
+      # GEMINI_API_KEY は Consumer 定義には存在せず、このプラグイン設定で管理する。
+      # ------------------------------------------------------------------
+      - name: ai-proxy-advanced
+        consumer: gemini-user
+        config:
+          targets:
+            - route_type: llm/v1/chat
+              auth:
+                header_name: Authorization
+                header_value: "Bearer ${GEMINI_API_KEY}"
+              model:
+                provider: gemini
+                name: gemini-2.0-flash
+                options:
+                  max_tokens: 512
+                  temperature: 0.7
+          balancer:
+            algorithm: round-robin
+
+      # ------------------------------------------------------------------
+      # key-auth: クライアント認証
+      # ------------------------------------------------------------------
+      - name: key-auth
+        config:
+          key_names:
+            - apikey
+
+consumers:
+  # Consumer は keyauth_credentials (自分の Consumer キー) だけを持つ。
+  # LLM の API キーは一切持たない。
+
+  - username: demo-user
+    keyauth_credentials:
+      - key: "${KONG_API_KEY}"
+
+  - username: gemini-user
+    keyauth_credentials:
+      - key: "${KONG_GEMINI_KEY}"

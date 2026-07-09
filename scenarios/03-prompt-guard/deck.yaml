@@ -50,12 +50,12 @@ services:
       # match_all_roles: true で system/user/assistant 全ロールを検査する。
       # これにより、マルチターンの会話内に埋め込まれた攻撃も検出できる。
       #
-      # deny_patterns は 5 カテゴリに分類:
-      #   1. 命令上書き / プロンプトインジェクション
-      #   2. システムプロンプト・内部情報の抽出
-      #   3. ジェイルブレイク / ペルソナ乗っ取り
-      #   4. テンプレートインジェクション (プロンプト構造への直接攻撃)
-      #   5. 認証情報・機密情報の窃取
+      # deny_patterns は 5 カテゴリ 10 パターン (上限 10 個 / 500 バイト):
+      #   1. 命令上書き / プロンプトインジェクション (1 パターン)
+      #   2. システムプロンプト・内部情報の抽出 (2 パターン)
+      #   3. ジェイルブレイク / ペルソナ乗っ取り (4 パターン: 英語 2 + 日本語 2)
+      #   4. テンプレートインジェクション (1 パターン)
+      #   5. 認証情報・機密情報の窃取 (2 パターン)
       # ------------------------------------------------------------------
       - name: ai-prompt-guard
         config:
@@ -63,76 +63,34 @@ services:
           deny_patterns:
 
             # -------- カテゴリ 1: 命令上書き / プロンプトインジェクション --------
-            # "ignore/forget/override... previous/above instructions" 系のパターン
-            - '(?i)\b(ignore|disregard|discard|override|overwrite|supersede|forget|erase|delete|clear)\b.{0,60}\b(all|above|previous|prior|original|initial|existing|your)\b.{0,40}\b(instruction|prompt|rule|guideline|constraint|context|directive|message|system)'
-            # "new instructions:", "following task:" などの命令挿入
-            - '(?i)\b(new|following|updated|changed|revised|different|actual)\b.{0,20}\b(instruction|task|rule|directive|objective|goal|system\s*prompt|order)\s*[:：]'
-            # "stop being an assistant, now you are X" 系
-            - '(?i)\bstop\b.{0,30}\b(being|acting\s+as|playing)\b.{0,40}\b(assistant|support|helpdesk|customer|bot|AI)'
-            # "your true/real purpose is..." — 隠れた目的を主張する
-            - '(?i)\byour\s+(true|real|actual|original|underlying|hidden)\s+(purpose|goal|instruction|rule|directive|objective|function)\b'
+            # ignore/override + new instructions: + stop being + your true purpose (4→1)
+            - '(?i)\b(?:ignore|disregard|override|supersede|forget|erase|delete|clear)\b.{0,50}\b(?:all|above|previous|prior|original|initial|your)\b.{0,40}\b(?:instruction|prompt|rule|guideline|constraint|directive)|\b(?:new|following|updated|changed|revised)\b.{0,15}\b(?:instruction|task|rule|directive|goal|system\s*prompt)\s*:|\bstop\b.{0,30}\b(?:being|acting\s+as)\b.{0,40}\b(?:assistant|support|helpdesk|bot|AI)|\byour\s+(?:true|real|actual|original|hidden)\s+(?:purpose|goal|instruction|rule|function)\b'
 
             # -------- カテゴリ 2: システムプロンプト・内部情報の抽出 --------
-            # "print/repeat/reveal... system/original prompt" 系
-            - '(?i)\b(print|output|repeat|echo|reveal|show|display|copy|paste|dump|write\s+out|give\s+me|tell\s+me|share|return|spit\s+out)\b.{0,60}\b(system|initial|original|hidden|secret|first|above|full|entire|complete|raw)\b.{0,40}\b(prompt|instruction|message|content|rule|text|context|input)'
-            # "repeat everything above word for word"
-            - '(?i)\brepeat\b.{0,40}\b(every\s*thing|all|the\s+above|the\s+text|what\s+(was|is)\s+above|word\s+for\s+word|verbatim|exactly|character\s+by\s+character)'
-            # "what are your instructions / what was the first message"
-            - '(?i)\bwhat\b.{0,15}\b(is|are|was|were)\b.{0,30}\b(your|the\s+first|the\s+initial|the\s+system|the\s+original|the\s+full)\b.{0,30}\b(message|prompt|instruction|rule|input|context|setup)'
-            # "summarize/describe your instructions"
-            - '(?i)\b(summarize|describe|explain|list|enumerate|paraphrase)\b.{0,40}\b(your\s+instruction|your\s+rule|your\s+guideline|the\s+system\s+prompt|your\s+prompt|the\s+prompt|above\s+text|context\s+given|your\s+setup)'
-            # "translate the above" — 翻訳を装った抽出
-            - '(?i)\b(translate|convert|rewrite)\b.{0,30}\b(the\s+above|above\s+text|your\s+prompt|system\s+prompt|the\s+instruction)'
+            # print/reveal/repeat + repeat word for word
+            - '(?i)\b(?:print|output|repeat|echo|reveal|show|display|copy|paste|dump|give\s+me|tell\s+me|share|return)\b.{0,60}\b(?:system|initial|original|hidden|secret|first|above|full|entire|complete|raw)\b.{0,40}\b(?:prompt|instruction|message|content|rule|text|context)|\brepeat\b.{0,40}\b(?:every\s*thing|all|the\s+above|word\s+for\s+word|verbatim|exactly)'
+            # what are your instructions + summarize/translate your prompt
+            - '(?i)\bwhat\b.{0,15}\b(?:is|are|was|were)\b.{0,30}\b(?:your|the\s+(?:first|initial|system|original|full))\b.{0,30}\b(?:message|prompt|instruction|rule|input|context)|\b(?:summarize|describe|explain|list|paraphrase|translate|convert|rewrite)\b.{0,60}\b(?:your\s+instruction|your\s+rule|the\s+system\s+prompt|your\s+prompt|the\s+prompt|the\s+above|system\s+prompt)'
 
             # -------- カテゴリ 3: ジェイルブレイク / ペルソナ乗っ取り --------
-            # 有名なジェイルブレイク手法の名称
-            - '(?i)\b(DAN|STAN|DUDE|AIM|UCAR|Omega|Alpha|BetaGPT|EvilBot|ShadowBot|jailbreak(ed|ing)?|jail\s+break)\b'
-            # "developer mode / god mode / admin mode"
-            - '(?i)\b(developer|god|admin|root|sudo|maintenance|debug|test|unrestricted|uncensored|raw|base)\s+mode\b'
-            # "pretend/imagine/hypothetically you have no restrictions"
-            - '(?i)(pretend|imagine|roleplay|suppose|assume|hypothetically|let[''`]?s\s+say|what\s+if\s+you).{0,100}(no\s+restriction|without\s+(any\s+)?(limit|rule|filter|constraint|guardrail|policy|instruction)|uncensored|unfiltered|unrestricted|free\s+to\s+say\s+anything|can\s+say\s+anything|no\s+ethical)'
-            # "you are now a different/unrestricted AI"
-            - '(?i)\byou\s+(are\s+now|have\s+(been\s+)?(re)?programmed|will\s+now\s+act\s+as|must\s+now\s+act\s+as|have\s+become|will\s+be|shall\s+be)\b.{0,80}(different|new|another|alternative|free|unrestricted|uncensored)\b.{0,30}(AI|model|assistant|language\s+model|LLM|bot|entity|version|persona)'
-            # "disable/bypass/remove your safety filters"
-            - '(?i)\b(disable|remove|turn\s+off|bypass|circumvent|deactivate|get\s+around|ignore|skip)\b.{0,50}\b(safety|filter|restriction|guardrail|limit|policy|check|rule|alignment|content\s+moderation)\b'
-
-            # ---- カテゴリ 3 (日本語パターン): ジェイルブレイク / ペルソナ乗っ取り ----
-            # ペルソナ変更: 「今から制限のないAIとして振る舞って」
-            # 「あなたは今から〜」「今からあなたは〜」などの書き出し + 制限解除の修飾語 + AIを示す名詞
-            - '(?:あなたは今から|今からあなたは|これからあなたは|あなたはこれから).{0,50}(?:制限のない|自由な|無制限の|別の|新しい|異なる).{0,20}(?:AI|アシスタント|ボット|モデル|キャラクター|エージェント)'
-            # ロールプレイ型: 「制限のないAIのふりをして」「自由なキャラとして演じて」
-            - '(?:制限のない|自由な|無制限の|フィルターのない|検閲なしの).{0,20}(?:AI|アシスタント|ボット|モデル|キャラ(?:クター)?).{0,30}(?:ふりを(?:して|し)|振りを(?:して|し)|として(?:振る舞|答え|行動)|演じ|ロールプレイ)'
-            # 制限・フィルター・ガイドラインの解除要求:
-            # 「制限を外して」「フィルターを無効にして」「ガイドラインを無視して回答して」など
-            - '(?:制限|フィルター|ルール|ガイドライン|制約|規制|検閲|安全装置).{0,20}(?:を(?:外して|取り除いて|解除して|無効にして|無視して|オフにして|取り払って|撤廃して)|なしに(?:答え|回答|話))'
-            # 開発者モード・管理者モード・神モード
-            - '(?:開発者|デベロッパー|管理者|神|ゴッド|アドミン)モード'
-            # 仮説型回避: 「もし制限がなければ〜と答えて」
-            # 「もし/仮に」の後で制限・ルール・フィルターの不在を仮定するパターン
-            - '(?:もし|仮に|仮定|想像|もしも).{0,80}(?:制限|ルール|フィルター|ガイドライン|制約).{0,20}(?:なければ|なかったら|ないとしたら|ない(?:と(?:した)?なら|場合)|なしで(?:は|答え|話))'
+            # DAN/STAN + developer/god mode + disable safety filters
+            - '(?i)\b(?:DAN|STAN|DUDE|AIM|UCAR|jailbreak(?:ed|ing)?|jail\s+break)\b|\b(?:developer|god|admin|root|sudo|unrestricted|uncensored)\s+mode\b|\b(?:disable|remove|turn\s+off|bypass|circumvent|deactivate|get\s+around|ignore|skip)\b.{0,50}\b(?:safety|filter|restriction|guardrail|limit|policy|rule|alignment)\b'
+            # pretend/imagine no restrictions + you are now reprogrammed
+            - '(?i)(?:pretend|imagine|roleplay|suppose|assume|hypothetically).{0,100}(?:no\s+restriction|without\s+(?:any\s+)?(?:limit|rule|filter|guardrail)|uncensored|unfiltered|unrestricted)|\byou\s+(?:are\s+now|have\s+(?:been\s+)?(?:re)?programmed|will\s+now\s+act\s+as|must\s+now\s+act\s+as)\b.{0,80}(?:unrestricted|uncensored|free|alternative)\b.{0,30}(?:AI|model|assistant|LLM|bot|entity|persona)'
+            # 日本語: ペルソナ変更・ロールプレイ型
+            - '(?:あなたは今から|今からあなたは|これからあなたは).{0,50}(?:制限のない|自由な|無制限の).{0,20}(?:AI|アシスタント|ボット|モデル|キャラ)|(?:制限のない|自由な|無制限の|フィルターのない|検閲なしの).{0,15}(?:AI|アシスタント|ボット|モデル).{0,25}(?:ふりを|振りを|として振る舞|演じ|ロールプレイ)'
+            # 日本語: 制限解除・開発者モード・仮説型
+            - '(?:制限|フィルター|ルール|ガイドライン|制約|検閲).{0,15}(?:を(?:外して|解除して|無効にして|無視して|取り払って|撤廃して)|なしに(?:答え|回答|話))|(?:開発者|管理者|神|ゴッド|アドミン)モード|(?:もし|仮に|もしも).{0,60}(?:制限|ルール|フィルター|ガイドライン).{0,15}(?:なければ|なかったら|ないとしたら|なしで)'
 
             # -------- カテゴリ 4: テンプレートインジェクション --------
-            # LLM プロンプトフォーマットを直接挿入する攻撃
-            # Llama/Mistral 形式: [INST], [/INST]
-            - '\[/?INST\]|\[/?SYS\]|\[/?SYSTEM\]|\[/?USER\]|\[/?ASSISTANT\]|\[/?HUMAN\]'
-            # ChatML 形式: <|im_start|>, <|im_end|>
-            - '<\|im_start\|>|<\|im_end\|>|<\|system\|>|<\|user\|>|<\|assistant\|>|<\|eot_id\|>'
-            # Markdown/テキスト形式: ### Instruction:, ## System:
-            - '(?i)#{1,3}\s*(instruction|system|human|assistant|input|response|prompt)\s*[:：]'
-            # XML タグ形式: <system>, <human>, <assistant>
-            - '(?i)<\/?(system|assistant|human|user|prompt|instruction|context)\s*>'
+            # [INST]/[SYS] + <|im_start|> + ### System: + <system>
+            - '(?i)\[/?(?:inst|sys|system|user|assistant|human)\]|<\|(?:im_start|im_end|system|user|assistant|eot_id)\|>|#{1,3}\s*(?:instruction|system|human|assistant|input|response|prompt)\s*[:：]|<\/?\s*(?:system|assistant|human|user|prompt|instruction|context)\s*>'
 
             # -------- カテゴリ 5: 認証情報・機密情報の窃取 --------
-            # APIキー・シークレット・パスワードの要求
-            - '(?i)\b(api[_\-\s]?key|secret[_\-\s]?key|access[_\-\s]?token|bearer[_\-\s]?token|auth[_\-\s]?token|private[_\-\s]?key|refresh[_\-\s]?token)\b'
-            # パスワード・認証情報の要求 (文脈付き)
-            - '(?i)\b(password|passphrase|credential|login\s+info|sign[\-\s]?in\s+detail)\b.{0,50}\b(tell|share|give|send|show|reveal|disclose|output|print|what\s+is)\b'
-            # DB・インフラ情報の抽出
-            - '(?i)\b(connection\s*(string|url|uri)|database\s*(url|uri|password|host|name|schema)|env(ironment)?\s*(var(iable)?|file|config))\b'
-            # 社内ネットワーク・システム情報
-            - '(?i)\b(internal\s*(url|endpoint|server|ip\s*address|hostname|config|network)|private\s*(ip|subnet|vlan|network))\b'
-
-          allow_patterns: []
+            # APIキー・トークン・パスワード
+            - '(?i)\b(?:api[_\-\s]?key|secret[_\-\s]?key|access[_\-\s]?token|bearer[_\-\s]?token|auth[_\-\s]?token|private[_\-\s]?key|refresh[_\-\s]?token)\b|\b(?:password|passphrase|credential|login\s+info)\b.{0,50}\b(?:tell|share|give|send|show|reveal|disclose|output|print)\b'
+            # DB接続情報 + 社内ネットワーク情報
+            - '(?i)\b(?:connection\s*(?:string|url|uri)|database\s*(?:url|uri|password|host|name|schema)|env(?:ironment)?\s*(?:var(?:iable)?|file|config))\b|\b(?:internal\s*(?:url|endpoint|server|ip\s*address|hostname|config|network)|private\s*(?:ip|subnet|vlan|network))\b'
 
       # ------------------------------------------------------------------
       # 優先度 100: ai-prompt-decorator — system プロンプトの注入

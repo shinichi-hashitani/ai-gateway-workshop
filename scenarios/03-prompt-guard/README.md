@@ -39,7 +39,7 @@ envsubst < ./scenarios/03-prompt-guard/deck.yaml \
 bash ./scenarios/03-prompt-guard/test.sh
 ```
 
-21 ケースを実行します。以下の出力になれば成功です。
+21 ケースを実行します（5 カテゴリ 10 パターンで検査）。以下の出力になれば成功です。
 
 ### 期待される出力
 
@@ -138,7 +138,7 @@ curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
 
 ### deny_patterns の 5 カテゴリ
 
-`deck.yaml` に定義した 27 個のパターンは以下の攻撃を検出します。
+`deck.yaml` に定義した 10 パターン（`ai-prompt-guard` の上限）は以下の攻撃を検出します。
 
 | カテゴリ | 代表的な攻撃フレーズ |
 |---------|-------------------|

@@ -77,7 +77,7 @@ curl -si -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
   -d '{"messages": [{"role": "user", "content": "一文で答えてください: Kongとは？"}]}' \
-  | grep -E "^(HTTP|RateLimit|X-Kong-AI)"
+  | grep -iE "^(HTTP|x-ai-ratelimit)"
 ```
 
 出力例:

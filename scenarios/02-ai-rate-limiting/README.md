@@ -76,7 +76,7 @@ x-ai-ratelimit-remaining-minute-policy-1: 558
 curl -si -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d '{"messages": [{"role": "user", "content": "一文で答えてください: Kongとは？"}]}' \
+  -d '{"messages": [{"role": "user", "content": "Kong Gatewayについて簡潔に説明してください。"}]}' \
   | grep -iE "^(HTTP|x-ai-ratelimit)"
 ```
 
@@ -96,7 +96,7 @@ x-ai-ratelimit-remaining-minute-policy-1: 556
 curl -s -X POST "${KONNECT_PROXY_URL}/ai/chat" \
   -H "Content-Type: application/json" \
   -H "apikey: ${KONG_API_KEY}" \
-  -d '{"messages": [{"role": "user", "content": "Kubernetesについて500字で説明してください。"}]}'
+  -d '{"messages": [{"role": "user", "content": "Kong Gatewayについて簡潔に説明してください。"}]}'
 ```
 
 `429` 時のレスポンス:
